@@ -1,0 +1,8 @@
+# Bundle layer for dsh-session-delete.
+#
+# A profile selects this package in `dsh.profile.bundles`; this patch then
+# inserts the plugin row into the composition. The row's `name` is the package
+# itself, so the Host entry and the browser half come from one install.
+- insert:
+    - id: session-delete
+      name: dsh-session-delete
