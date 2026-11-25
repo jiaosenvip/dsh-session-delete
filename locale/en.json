@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Delete session",
+    "description": "Permanently delete sessions from the sidebar row menu: one at a time, or several by ticking them in the bulk dialog. Removes the transcript, list index and workspace entry."
+  }
+}

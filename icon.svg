@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Delete session">
+  <defs>
+    <linearGradient id="session-delete-bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f6fb2"/>
+      <stop offset="1" stop-color="#6d4bd8"/>
+    </linearGradient>
+  </defs>
+  <rect x="3" y="3" width="58" height="58" rx="15" fill="url(#session-delete-bg)"/>
+  <g fill="#ffffff">
+    <rect x="27" y="14" width="10" height="4" rx="2"/>
+    <rect x="19" y="19" width="26" height="4" rx="2"/>
+    <path d="M22 25h20v20.5a4.5 4.5 0 0 1-4.5 4.5h-11a4.5 4.5 0 0 1-4.5-4.5z"/>
+  </g>
+  <g fill="url(#session-delete-bg)">
+    <rect x="28.2" y="31" width="3.2" height="13" rx="1.6"/>
+    <rect x="34.6" y="31" width="3.2" height="13" rx="1.6"/>
+  </g>
+</svg>

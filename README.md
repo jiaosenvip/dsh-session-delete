@@ -1,63 +1,46 @@
 # dsh-session-delete
 
-为 DeepSeek Harness (DSH) 增加「彻底删除会话」能力：侧栏会话行的 `…` 菜单里多一项 **删除会话…**，另有 `/delete-session` 命令。
+为 DeepSeek Harness (DSH) 增加「彻底删除会话」能力，支持单条与批量，两个入口都在会话行的 `…` 菜单里：
 
-删除会同时清掉三样东西：
+- **删除会话…** —— 删这一条；
+- **批量删除会话…** —— 打开勾选弹窗；弹出时已勾上当前这条会话，可继续勾选其他。
+
+在 **Plugins** 页里，这个插件显示为 **删除会话**；显示标题与描述来自 `locale/zh.json`（英文界面读 `locale/en.json`），图标为 `icon.svg`。
+
+删除会同时清掉这些：
 
 | 位置 | 内容 |
 |---|---|
 | `~/.dsh/sessions/<cwd>/<session-id>/` | 会话正文（`session.v4.jsonl.zstd`） |
 | `~/.dsh/storages/session_projcache/sessions/<session-id>.json` | 侧栏列表用的投影索引 |
 | `~/.dsh/storages/workspace.json` 的 `sessionIds` | 工作区分组成员 |
+| `~/.dsh/storages/workspace.json` 的归档/固定集合 | 该会话被归档或固定在前的记录 |
 
 如果这条会话本次运行中还驻留在 Host 内存里（打开过），插件会先关掉写入句柄、卸载 Agent、把它移出会话表，所以**删完侧栏那一行会立刻消失，刷新后也不会回来**，不需要重启 DSH。
 
 ## 要求
 
-- DeepSeek Harness `0.2.x`（桌面版或 `dsh web`）。
+- DeepSeek Harness `0.2.x`（桌面版或 `dsh web`）；`package.json` 的 `engines.dsh` 声明为 `>=0.2.1-rc.1 <0.3.0`，0.3 起 Host 内部对象可能变动，会被安装检查挡下而不是静默失效。
 - 浏览器端需要 `dsh-client-ui-workspace`（标准 Web/桌面组合自带）。
 - 无第三方依赖：Host 侧只用 Node 内置模块，浏览器侧只用 loader 提供的 `react` 和 ui-primitives。
 
 ## 安装
 
-### 方式一：压缩包直接放进 profile（最简单）
+本插件同时包含 Host 与浏览器两半，必须以 **bundle** 形式安装（`package.json` 已声明 `dsh.bundle.patch` 与 `dsh.client`）。安装后由它自己的 patch 层插入插件行，不需要手写 YAML。
 
-1. 解压，把 `dsh-session-delete` 整个目录放到：
+### 方式一：图形界面（推荐）
 
-   ```
-   ~/.dsh/profiles/<profile>/plugins/dsh-session-delete/
-   ```
+侧栏 **Plugins** 页 → **Add plugin** → 填入本目录的绝对路径（如 `C:\path\dsh-session-delete`），安装后默认启用。
 
-   Windows 一般是 `C:\Users\<你>\.dsh\profiles\desktop\plugins\dsh-session-delete\`。
+### 方式二：命令行
 
-2. 在该 profile 的 `cordis.patch.yml` **末尾追加**：
+```powershell
+dsh plugin --profile desktop add "C:\path\dsh-session-delete"
+```
 
-   ```yaml
-   - insert:
-       - id: session-delete
-         name: ./plugins/dsh-session-delete/entry.js
-   ```
+然后确认该 profile 的 `package.json` 里 `dsh.profile.bundles` 包含 `"dsh-session-delete"`（命令行安装不会自动加，图形界面会）。改完重启 DSH。
 
-   相对路径会按 patch 文件所在目录解析。
-
-3. 完全退出并重开 DeepSeek Harness（Host 侧代码只在启动时加载，刷新页面不够）。
-
-### 方式二：作为 bundle 安装（tgz）
-
-`dsh-session-delete-0.3.0.tgz` 已经声明了 `dsh.bundle.patch`，安装后由它自己的 patch 层插入插件行，不用手写 YAML。
-
-- **图形界面**：侧栏 **Plugins** 页 → **Add plugin** → 填入 tgz 的绝对路径（或 `file:C:\path\dsh-session-delete-0.3.0.tgz`）→ 安装。安装成功后会默认启用。
-- **命令行**：
-
-  ```powershell
-  dsh plugin --profile desktop add "file:C:\path\dsh-session-delete-0.3.0.tgz"
-  ```
-
-  然后确认该 profile 的 `package.json` 里 `dsh.profile.bundles` 包含 `"dsh-session-delete"`（命令行安装不会自动加，图形界面会）。
-
-改完重启 DSH。
-
-> 两种方式任选其一。同时用会出现两条 entry（id 不同），表现为菜单里出现两个「删除会话…」，请删掉其中一条。
+> 两种方式任选其一。**不要**把本目录放进 `plugins/` 再在 `cordis.patch.yml` 里手动 `insert` 一个指向 `entry.js` 的路径行：那样只会加载 Host 侧入口，浏览器侧不会发现 `dsh.client`，侧栏菜单不会出现。两种方式同时使用还会出现两条 entry（id 不同），表现为会话行菜单里重复出现一遍「删除会话…」和「批量删除会话…」。
 
 ## 用法
 
@@ -65,34 +48,54 @@
 
 会话行悬停 → `…` → **删除会话…** → 确认。结果以右上角提示条呈现：
 
-- 3 秒左右自动消失，不打断当前对话、草稿和滚动位置；
+- 约 4 秒后自动消失（Toast 停 3 秒 + 1 秒退场动画），不打断当前对话、草稿和滚动位置；
 - 如果删的正是屏幕上这条会话，主区域会自动切到**同一工作区的新会话**；拿不到导航服务时退回无会话首页；
 - 删的是后台会话时，不会把你从正在看的对话里拽走。
 
-### 命令
+### 批量删除
 
+会话行悬停 → `…` → **批量删除会话…**，弹出勾选弹窗（当前这条已勾选）：
+
+- 按工作区分组列出会话，每组可折叠、可「全选本组」；顶部搜索框按标题或目录过滤；
+- 「全选」只作用于当前搜索结果，不会把被过滤掉的行偷偷带上；
+- 每行显示标题、创建时间、占用大小（大小与时间来自 Host 的会话索引，读不到时这两列省略，不影响删除）；
+- 底部 **删除选中（N）** 一次提交，Host 逐条串行删除；删除结束后弹窗切到结果视图，分别列出成功、跳过、失败的条数与会话标题，主区域若正停在被删会话上会切到同工作区新会话。
+
+> 批量删除与单条删除共用同一套删除流程（关写入句柄 → 卸载 Agent → 删文件 → 回读校验 → 清工作区账本 → 复扫缓存），所以两种入口的结果一致。
+
+**正在运行的会话会被跳过，不会中止整批**：凡是 Agent 还在生成回复的会话，批量删除时记为「运行中，已跳过」，其余会话照常删除。这与单条入口不同——单条删除会直接拒绝运行中的会话，因为那里用户指名道姓只删这一条。需要删运行中的会话时，先停止它，再单独删。
+
+## 调试
+
+设置环境变量 `DSH_SESSION_DELETE_DEBUG=1` 后，插件会把启动与删除步骤追加到 `%TEMP%\dsh-session-delete.applied`（macOS/Linux 为 `$TMPDIR`），批量删除还会逐条记录跳过与失败原因。默认关闭，普通使用不写任何额外文件。
+
+## 测试
+
+```powershell
+npm test        # 等价于 node test/host-smoke.mjs && node test/client-smoke.mjs
 ```
-/delete-session                列出全部会话（id、标题、工作目录、大小）
-/delete-session <id前缀>        按 id 前缀删除
-/delete-session <标题片段>      按标题删除（命中多条时只列候选，不删）
-```
 
-### 调试
+两个测试都用 Node 直接跑，没有第三方依赖，也不触碰真实的 `~/.dsh`：
 
-设置环境变量 `DSH_SESSION_DELETE_DEBUG=1` 后，插件会把启动与删除步骤追加到 `%TEMP%\dsh-session-delete.applied`（macOS/Linux 为 `$TMPDIR`）。默认关闭，普通使用不写任何额外文件。
+- `test/host-smoke.mjs` 在临时目录里造出会话目录与投影缓存行，加载真实的 `entry.js`，用假请求驱动三条 HTTP 处理器——验证文件与缓存行确实被删、工作区账本（含归档/固定标记）确实被清、运行中的会话被跳过而不中止整批、非法 id 与超限批次被拒、且确认不再注册任何斜杠命令。
+- `test/client-smoke.mjs` 用最小 React 桩加载真实的 `client.js`，验证两个 slot 注册、会话行菜单里的两个条目，以及弹窗按工作区分组、排除子代理与空白会话、归档与运行中标签、全选计数、提交后确实重拉列表都符合预期。
+
+`test/` 目录不在 `package.json` 的 `files` 里，不会随包发布；它只用于本地开发自检。
 
 ## 行为与边界
 
-- **正在运行的会话会被拒绝**（HTTP 409 / 命令返回错误）：先停止再删，避免把正在作答的一轮拆成半截。
+- **正在运行的会话**：单条入口直接拒绝（先停止再删）；批量入口跳过该条、其余照删，并在结果里列出被跳过的标题。
 - **不可恢复**：没有回收站，没有撤销。
 - **附件不删**：`~/.dsh/attachments` 是内容寻址共享存储，可能被其他会话引用，插件刻意不动。
-- **同 id 的多条命中**：命令按前缀/标题匹配，命中多条时只列候选。
-- **当前会话**：命令行会拒绝删除「正在运行这条命令的会话」；侧栏菜单删当前会话是允许的（删完自动换页）。
+- **会话 id**：删除接口按完整会话 id 精确匹配，不再提供前缀或标题匹配。
+- **当前会话**：侧栏菜单与批量弹窗删当前会话是允许的（删完自动换页）。
+- **侧栏删除接口**：只接受 `POST` + `application/json`，且会话 id 必须是单一安全标识；批量接口一次最多 500 条，超出直接拒绝、不执行任何删除。
+- **批量范围**：弹窗只列出侧栏能显示的会话（不含子代理会话与空白占位会话），所以删掉的每一条在侧栏都有对应行。
 
 ## 卸载
 
-1. 从 profile 的 `cordis.patch.yml` 删掉那段 `insert`（方式一），或从 `dsh.profile.bundles` 移除 `"dsh-session-delete"` 并删除依赖（方式二）。
-2. 删除 `plugins/dsh-session-delete` 目录（方式一）或执行 `dsh plugin --profile desktop remove dsh-session-delete`（方式二）。
+1. 在侧栏 **Plugins** 页打开本插件 → **Remove**；或执行 `dsh plugin --profile desktop remove dsh-session-delete`。两者都会同时去掉 `dsh.profile.bundles` 里的选择和 `package.json` 里的依赖（若是 `link:` 安装，profile 里只留一个指向本目录的链接）。
+2. 如不再需要，删除本插件目录（`link:` 安装时删掉目录会让该链接失效，重装前先移除）。
 3. 重启 DSH。
 
 已删除的会话不会因为卸载插件而回来。
@@ -101,11 +104,25 @@
 
 - 依赖 Host 内部对象（`agents` / `sessions` / `sessionPersistence` 的写入表）做热卸载，这些是带 `try/catch` 的兜底路径：某个服务缺席只会让「行立即消失」退化为「重启后消失」，不会阻断文件删除。
 - 只处理 `session.v4` 的存储布局；未来若持久化格式改版，插件需要同步调整。
+- 会话列表来自侧栏使用的投影缓存（`session_projcache`）。没有缓存行、或缓存行损坏的会话不会出现在批量弹窗的列表里；侧栏本身也不显示它们。
+- 只删除目标会话本身：其子代理（subagent）的会话记录不会被一起删除（子代理不出现在侧栏，批量弹窗也不列它，需自行清理）。
+- 浏览器侧文案目前固定为中文（Plugins 页标题/描述已按界面语言提供中英文），英文界面下按钮与提示仍是中文。
 - 不做跨机器/远程 Host 的删除（只操作本机 `~/.dsh`）。
+- 批量删除按选中顺序逐条串行执行（每次删除末尾都要写工作区账本，并发会互相覆盖）。删除 100 条以上时弹窗会较久停在「正在删除…」，这是预期行为，别重复点击。
 
-## 版本
+## 修订记录
 
-- `0.3.0` — 可分发的 bundle 形态；调试标记改为按需开启。
+**本项目尚未发布**：没有上架 npm、dsh-market 或任何插件市场，也没有发布过正式版本。下面的版本号只是本地开发过程中的修订顺序，方便对照代码改动，不代表可供下载的发行版；`package.json` 里的 `version` 同理。安装请按上文从本目录安装。
+
+当前（`0.4.3`）已实现的功能就是本文档「用法」与「行为与边界」两节所列的那些，没有别的。
+
+- `0.4.3` — 移除交互式命令模式：插件只保留浏览器可调用的三条路由，单条与批量删除都从侧栏会话行的 `…` 菜单进入；描述、文档与测试同步更新。
+- `0.4.2` — 修复批量删除后已删会话残留在「未分组」：批量提交结束后主动重拉一次 Host 会话列表（`sessions.refresh()`），让侧栏像单条删除那样立即收敛。
+- `0.4.1` — 批量删除入口移到会话行的 `…` 菜单（与单条删除并列），打开时自动勾选当前会话；去掉侧栏面板 More 菜单里的入口。
+- `0.4.0` — 新增批量删除：勾选弹窗（按工作区分组、搜索过滤、全选与按组全选、结果分列成功/跳过/失败），配套 `delete-batch` 与 `sessions` 两条 Host 路由；批量与单条共用同一条删除路径，运行中的会话按条跳过而不中止整批。
+- `0.3.2` — 修复与加固：删除接口只接受 `application/json`（挡住跨站表单 CSRF）并校验会话 id 形状、单条删除入口也会拒绝运行中的会话、Toast 第二条提示不再继承上一条计时、`writers` 表为 `null` 时不再漏关写入句柄；去掉不必要的内部索引重建；会话大小/0 B 显示更准。
+- `0.3.1` — 插件描述改为中文，补充中英文显示元数据（Plugins 页标题「删除会话」）与图标；安装说明改为 bundle 方式。
+- `0.3.0` — 改为 bundle 形态（`dsh.bundle.patch` + `dsh.client`），Host 与浏览器两半随一次安装加载；调试标记改为按需开启。
 - `0.2.2` — 删除当前会话后自动换到同工作区新会话。
 - `0.2.1` — 结果改用右上角提示条，不再刷新页面。
 - `0.2.0` — 热卸载驻留会话 + 清理 workspace 账本，删除立即生效。

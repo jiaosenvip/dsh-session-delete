@@ -1,12 +1,14 @@
 {
   "name": "dsh-session-delete",
-  "version": "0.3.0",
-  "description": "Delete a DSH session from the sidebar row menu or with /delete-session, including its transcript, list index and workspace entry.",
+  "version": "0.4.3",
+  "description": "彻底删除 DSH 会话：在侧栏会话行的「…」菜单里删一条或批量勾选删多条。清除会话记录、列表索引与工作区分组，不可恢复。",
   "type": "module",
   "main": "entry.js",
   "exports": {
     ".": "./entry.js",
     "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./package.json": "./package.json"
   },
@@ -14,15 +16,25 @@
     "entry.js",
     "client.js",
     "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
     "README.md",
     "LICENSE"
   ],
+  "scripts": {
+    "test": "node test/host-smoke.mjs && node test/client-smoke.mjs"
+  },
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
-    "session"
+    "session",
+    "session-delete"
   ],
+  "icon": "./icon.svg",
+  "engines": {
+    "dsh": ">=0.2.1-rc.1 <0.3.0"
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"
